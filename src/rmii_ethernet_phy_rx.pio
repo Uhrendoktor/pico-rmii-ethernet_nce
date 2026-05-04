@@ -10,11 +10,19 @@
 // GPIO assignments for DECSTATION2040
 .define public PICO_RMII_ETHERNET_SM_RX       1
 .define public PICO_RMII_ETHERNET_SM_TX       0
-.define public PICO_RMII_ETHERNET_RX_PIN      3 // rx pin start: RX0, RX1, CRS
-.define public PICO_RMII_ETHERNET_TX_PIN      0 // tx pin start: TX0, TX1, TX-EN
-.define public PICO_RMII_ETHERNET_MDIO_PIN    6
-.define public PICO_RMII_ETHERNET_MDC_PIN     7
+
+.define public PICO_RMII_ETHERNET_RX_PIN      31
+.define public PICO_RMII_ETHERNET_RX1_PIN     32
+.define public PICO_RMII_ETHERNET_RX_CRS_PIN  29
+
+.define public PICO_RMII_ETHERNET_TX_PIN      23
+.define public PICO_RMII_ETHERNET_TX1_PIN     22
+.define public PICO_RMII_ETHERNET_TX_EN_PIN   24 
+
+.define public PICO_RMII_ETHERNET_MDIO_PIN    27
+.define public PICO_RMII_ETHERNET_MDC_PIN     26
 .define public PICO_RMII_ETHERNET_RETCLK_PIN 21
+
 
 /*
 // GPIO assignments from the original RMII code
@@ -22,8 +30,8 @@
 .define public PICO_RMII_ETHERNET_SM_TX       0
 .define public PICO_RMII_ETHERNET_RX_PIN      6 // rx pin start: RX0, RX1, CRS
 .define public PICO_RMII_ETHERNET_TX_PIN     10 // tx pin start: TX0, TX1, TX-EN
-.define public PICO_RMII_ETHERNET_MDIO_PIN   14
-.define public PICO_RMII_ETHERNET_MDC_PIN    15
+.define public PICO_RMII_ETHERNET_MDIO_PIN   27
+.define public PICO_RMII_ETHERNET_MDC_PIN    26
 .define public PICO_RMII_ETHERNET_RETCLK_PIN 21
 */
 
@@ -36,7 +44,7 @@
 // and the onboard RC network may not guarantee sufficient time for RP2xxx
 // to initialize clock output.
 // This pin will float after reset to allow the board pull up to work
-.define public PICO_RMII_ETHERNET_RST_PIN     28
+.define public PICO_RMII_ETHERNET_RST_PIN     25
 
 // Uncomment to enable LAN8720a power via GPIO
 // This pin will stay at Vcc after reset
@@ -67,13 +75,13 @@ sample:
 .program rmii_ethernet_phy_rx_data
 .wrap_target
 start:
-    wait 1 pin 2      ; Wait for CR_DV assertion
-    wait 1 pin 1 [4]  ; Wait for Start of Frame Delimiter, skip to next dibit
+    wait 1 PIN 2      ; Wait for CR_DV assertion
+    wait 1 PIN 1 [4]  ; Wait for Start of Frame Delimiter, skip to next dibit
 sample:
     ; Wait for rising edge of RMII: clock low, follwed by clock high
     wait 0 gpio PICO_RMII_ETHERNET_RETCLK_PIN 
     wait 1 gpio PICO_RMII_ETHERNET_RETCLK_PIN
-    in pins, 2        ; accumulate di-bits
+    in PINS, 2        ; accumulate di-bits
     jmp PIN, sample   ; as long as CRS_DV is asserted
     irq set 0         ; Signal end of active packet
 .wrap
@@ -81,22 +89,28 @@ sample:
 
 % c-sdk {
 
-static inline void rmii_ethernet_phy_rx_init(PIO pio, uint sm, uint offset, uint pin, float div) {
+static inline void rmii_ethernet_phy_rx_init(PIO pio, uint sm, uint offset, float div) {
 
     // Make RX[1:0], CRS_DV inputs
-    pio_sm_set_consecutive_pindirs(pio, sm, pin, 3, false);
+    // pio_sm_set_consecutive_pindirs(pio, sm, PICO_RMII_ETHERNET_RX_PIN, 3, false);
+
+    uint32_t pin_mask = 0;
+    pin_mask = pin_mask + 1 << PICO_RMII_ETHERNET_RX_PIN;
+    pin_mask = pin_mask + 1 << PICO_RMII_ETHERNET_RX1_PIN;
+    pin_mask = pin_mask + 1 << PICO_RMII_ETHERNET_RX_CRS_PIN;
+    pio_sm_set_pindirs_with_mask(pio, sm, 0, pin_mask);
 
     pio_sm_config c = rmii_ethernet_phy_rx_data_program_get_default_config(offset);
 
-    sm_config_set_in_pins(&c, pin);
+    sm_config_set_in_pins(&c, PICO_RMII_ETHERNET_RX_PIN);
 
-    // Set jump pin to CR_DV
-    sm_config_set_jmp_pin(&c, pin+2);
+    // Set jump pin to CRS_DV
+    sm_config_set_jmp_pin(&c, PICO_RMII_ETHERNET_RX_CRS_PIN);
 
     // Set up pins
-    pio_gpio_init(pio, pin);      // RX0
-    pio_gpio_init(pio, pin + 1);  // RX1
-    pio_gpio_init(pio, pin + 2);  // CRS (data valid)
+    pio_gpio_init(pio, PICO_RMII_ETHERNET_RX_PIN);  // RX0
+    pio_gpio_init(pio, PICO_RMII_ETHERNET_RX1_PIN);  // RX1
+    pio_gpio_init(pio, PICO_RMII_ETHERNET_RX_CRS_PIN);  // CRS (data valid)
     
     sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
     sm_config_set_in_shift(&c, true, true, 8);
@@ -107,7 +121,7 @@ static inline void rmii_ethernet_phy_rx_init(PIO pio, uint sm, uint offset, uint
     pio_sm_init(pio, sm, offset, &c);
 
     // Set synchronizer bypass bits - remove two sysclock delays...
-    //hw_set_bits(&pio->input_sync_bypass, 0x7u << pin);
+    //hw_set_bits(&pio->input_sync_bypass, 0x7u << PICO_RMII_ETHERNET_RX_PIN);
     //hw_set_bits(&pio->input_sync_bypass, 1 << PICO_RMII_ETHERNET_RETCLK_PIN);
 
     pio_sm_set_enabled(pio, sm, true);

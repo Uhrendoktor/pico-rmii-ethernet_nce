@@ -31,11 +31,14 @@ int (main)() {
 
   // Do board specific init
   arch_pico_init();
+  stdio_init_all();
 
   printf("pico rmii ethernet - httpd\n");
 
   // Initilize LWIP in NO_SYS mode
   lwip_init();
+
+  printf("test\n");
 
   // Initialize the PIO-based RMII Ethernet network interface
   if (netif_rmii_ethernet_init(&netif) != ERR_OK) {

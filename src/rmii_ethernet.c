@@ -384,6 +384,11 @@ static uint __not_in_flash_func(ethernet_frame_copy_ring_pbuf)
   // Add CRC len
   tot_len += 4;
 
+  for (size_t i = 2; i < tot_len; i++) {
+    uint8_t b = data[(p_addr + i) & TX_BUF_MASK];
+    data[(p_addr + i) & TX_BUF_MASK] = ((b & 0b01010101) << 1) | ((b & 0b10101010) >> 1);
+}
+
   // Compute packet length dibits - 1 for PIO transmit loop
   uint16_t pkt_len = (tot_len * 4) - 1;
 
@@ -1175,6 +1180,8 @@ static err_t netif_rmii_ethernet_low_init(struct netif *netif) {
 			    // Pass in the TX pio entry point
 			    rmii_ethernet_phy_tx_data_offset_tx_start,
 			    PICO_RMII_ETHERNET_TX_PIN,
+          PICO_RMII_ETHERNET_TX1_PIN,
+          PICO_RMII_ETHERNET_TX_EN_PIN,
 			    PICO_RMII_ETHERNET_RETCLK_PIN,
 			    tx_div);
 
@@ -1182,7 +1189,6 @@ static err_t netif_rmii_ethernet_low_init(struct netif *netif) {
   rmii_ethernet_phy_rx_init(PICO_RMII_ETHERNET_PIO,
 			    PICO_RMII_ETHERNET_SM_RX,
 			    rx_sm_offset,
-			    PICO_RMII_ETHERNET_RX_PIN,
 			    rx_div);
 
 #ifdef PICO_RMII_ETHERNET_RST_PIN

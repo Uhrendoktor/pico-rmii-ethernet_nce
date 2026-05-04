@@ -1,0 +1,14 @@
+*.bin
+*.dis
+*.elf
+*.elf.map
+.vscode
+CMakeFiles/
+generated/
+*.cmake
+CMakeCache.txt
+Makefile
+pico_flash_region.Id
+*.S
+pico-sdk/
+*.h

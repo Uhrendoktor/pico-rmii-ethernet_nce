@@ -15,6 +15,9 @@
 #include "iperf.h"
 #include "rmii_ethernet/netif.h"
 
+#include "hardware/clocks.h"
+
+
 void netif_link_callback(struct netif *netif) {
   printf("netif link status changed %s\n",
          netif_is_link_up(netif) ? "up" : "down");
@@ -30,17 +33,25 @@ int main() {
 
   // Do board specific init
   arch_pico_init();
+  stdio_init_all();
+
+  // Set system clock to 300 MHz
+  set_sys_clock_khz(300000, true);
 
   printf("&&& pico rmii ethernet - iperf\n");
 
   // Initilize LWIP in NO_SYS mode
   lwip_init();
 
+  printf("lwip_init done\n");
+
   // Initialize the PIO-based RMII Ethernet network interface
   if (netif_rmii_ethernet_init(&netif) != ERR_OK) {
     printf("Failed to open ethernet interface\n");
     return -1;
   }
+
+  printf("netif ethernet init done\n");
 
   // Report configuration
   arch_pico_info(&netif);
@@ -55,6 +66,8 @@ int main() {
 
   // Start DHCP client and iperf
   dhcp_start(&netif);
+
+  printf("dhcp started\n");
 
   iperf_init();
 
